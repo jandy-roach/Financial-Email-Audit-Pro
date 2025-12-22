@@ -94,3 +94,7 @@ Prepare a clear demo explanation aligned with Hackathon 1 objectives
 
 Outcome:
 A complete, polished, and demo-ready GenAI application showcasing prompt engineering and AI safety.
+
+
+
+##Resolving Errors
