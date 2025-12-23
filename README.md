@@ -98,3 +98,5 @@ A complete, polished, and demo-ready GenAI application showcasing prompt enginee
 
 
 ##Resolving Errors
+
+## Learing About Next.js Because I can't able to run
