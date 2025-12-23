@@ -1,34 +1,38 @@
 export default function InputForm() {
   return (
-    <section>
-      <h2>Input</h2>
+    <section className="bg-white p-6 rounded-lg shadow mb-8">
+      <h2 className="text-xl font-semibold mb-4">Input</h2>
 
       <textarea
         placeholder="Describe your financial situation"
         rows={5}
-        style={{ width: "100%", marginBottom: "10px" }}
+        className="w-full border rounded p-3 mb-4"
       />
 
-      <select style={{ width: "100%", marginBottom: "10px" }}>
-        <option>Bank Manager</option>
-        <option>Tax Officer</option>
-        <option>Client</option>
-      </select>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+        <select className="border rounded p-2">
+          <option>Bank Manager</option>
+          <option>Tax Officer</option>
+          <option>Client</option>
+        </select>
 
-      <select style={{ width: "100%", marginBottom: "10px" }}>
-        <option>Professional</option>
-        <option>Polite</option>
-        <option>Firm</option>
-        <option>Angry</option>
-      </select>
+        <select className="border rounded p-2">
+          <option>Professional</option>
+          <option>Polite</option>
+          <option>Firm</option>
+          <option>Angry</option>
+        </select>
 
-      <select style={{ width: "100%", marginBottom: "10px" }}>
-        <option>Apologetic</option>
-        <option>Neutral</option>
-        <option>Assertive</option>
-      </select>
+        <select className="border rounded p-2">
+          <option>Apologetic</option>
+          <option>Neutral</option>
+          <option>Assertive</option>
+        </select>
+      </div>
 
-      <button>Generate Email</button>
+      <button className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">
+        Generate Email
+      </button>
     </section>
   );
 }
