@@ -4,34 +4,25 @@ import { useState } from "react";
 
 export default function InputForm() {
   const [situation, setSituation] = useState("");
-  const [recipient, setRecipient] = useState("Bank Manager");
-  const [style, setStyle] = useState("Professional");
-  const [tone, setTone] = useState("Apologetic");
+  const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [responseText, setResponseText] = useState(null);
 
   const handleSubmit = async () => {
     setLoading(true);
-    setResponseText(null);
+    setResult(null);
 
     try {
       const response = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          situation: situation || "Test situation",
-          recipient,
-          style,
-          tone,
-        }),
+        body: JSON.stringify({ situation }),
       });
 
       const data = await response.json();
-      console.log(data);
-      setResponseText(JSON.stringify(data, null, 2));
+      setResult(data);
+      console.log("Groq intent result:", data);
     } catch (err) {
       console.error(err);
-      setResponseText("Error: " + err.message);
     } finally {
       setLoading(false);
     }
@@ -42,58 +33,26 @@ export default function InputForm() {
       <h2 className="text-xl font-semibold mb-4">Input</h2>
 
       <textarea
-        placeholder="Describe your financial situation"
-        rows={5}
-        className="w-full border rounded p-3 mb-4"
         value={situation}
         onChange={(e) => setSituation(e.target.value)}
+        placeholder="Describe your financial situation"
+        className="w-full border rounded p-3 mb-4"
+        rows={5}
       />
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-        <select
-          className="border rounded p-2"
-          value={recipient}
-          onChange={(e) => setRecipient(e.target.value)}
-        >
-          <option>Bank Manager</option>
-          <option>Tax Officer</option>
-          <option>Client</option>
-        </select>
-
-        <select
-          className="border rounded p-2"
-          value={style}
-          onChange={(e) => setStyle(e.target.value)}
-        >
-          <option>Professional</option>
-          <option>Polite</option>
-          <option>Firm</option>
-          <option>Angry</option>
-        </select>
-
-        <select
-          className="border rounded p-2"
-          value={tone}
-          onChange={(e) => setTone(e.target.value)}
-        >
-          <option>Apologetic</option>
-          <option>Neutral</option>
-          <option>Assertive</option>
-        </select>
-      </div>
 
       <button
         onClick={handleSubmit}
-        className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700"
         disabled={loading}
+        className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 disabled:opacity-50"
       >
-        {loading ? "Generating..." : "Generate Email"}
+        {loading ? "Analyzing..." : "Generate Email"}
       </button>
 
-      {responseText && (
-        <pre className="mt-4 bg-gray-100 p-3 rounded text-sm whitespace-pre-wrap">
-          {responseText}
-        </pre>
+      {result && (
+        <div className="mt-4 p-4 bg-gray-100 rounded text-sm">
+          <strong>AI Response:</strong>
+          <pre className="mt-2">{JSON.stringify(result, null, 2)}</pre>
+        </div>
       )}
     </section>
   );
