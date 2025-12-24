@@ -2,20 +2,11 @@
 
 import { useState } from "react";
 
-export default function InputForm() {
-  const [situation, setSituation] = useState("");
+export default function InputForm({ situation, setSituation, setResult }) {
   const [recipient, setRecipient] = useState("Bank Manager");
   const [style, setStyle] = useState("Professional");
   const [tone, setTone] = useState("Apologetic");
-  const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
-
-  const confidence =
-    result?.audit?.riskLevel === "Low"
-      ? "Safe to Send"
-      : result?.audit?.riskLevel === "Medium"
-      ? "Review Suggested"
-      : "High Risk – Revise Required";
 
   const handleSubmit = async () => {
     setLoading(true);
@@ -36,6 +27,7 @@ export default function InputForm() {
     setResult(data);
     setLoading(false);
   };
+ 
 
   return (
     <section className="bg-white p-6 rounded-lg shadow mb-8">
@@ -82,51 +74,7 @@ export default function InputForm() {
         </select>
       </div>
 
-      <button
-        onClick={handleSubmit}
-        disabled={loading}
-        className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 disabled:opacity-50"
-      >
-        {loading ? "Generating..." : "Generate Email"}
-      </button>
 
-      {result?.email && (
-        <div className="mt-6 p-4 bg-gray-100 rounded">
-          <h3 className="font-semibold">Generated Email</h3>
-          <p className="mt-2 font-medium">
-            Subject: {result.email.subject}
-          </p>
-          <pre className="mt-2 text-sm whitespace-pre-wrap">
-            {result.email.body}
-          </pre>
-        </div>
-      )}
-
-      {result?.audit && (
-        <div className="mt-6 p-4 border rounded">
-          <h3 className="font-semibold">Risk Analysis</h3>
-          <p className="mt-1">
-            Risk Level: {" "}
-            <span className="font-bold">{result.audit.riskLevel}</span>
-          </p>
-
-          {result.audit?.issues?.length > 0 && (
-            <ul className="mt-3 list-disc list-inside text-sm">
-              {result.audit.issues.map((issue, idx) => (
-                <li key={idx}>
-                  <strong>Issue:</strong> {issue.line}
-                  <br />
-                  <strong>Why:</strong> {issue.reason}
-                  <br />
-                  <strong>Safer:</strong> {issue.safeAlternative}
-                </li>
-              ))}
-            </ul>
-          )}
-
-          <p className="mt-2 font-semibold">Confidence: {confidence}</p>
-        </div>
-      )}
     </section>
   );
 }
