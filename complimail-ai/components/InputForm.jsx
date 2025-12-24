@@ -10,6 +10,13 @@ export default function InputForm() {
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
 
+  const confidence =
+    result?.audit?.riskLevel === "Low"
+      ? "Safe to Send"
+      : result?.audit?.riskLevel === "Medium"
+      ? "Review Suggested"
+      : "High Risk – Revise Required";
+
   const handleSubmit = async () => {
     setLoading(true);
     setResult(null);
@@ -92,6 +99,32 @@ export default function InputForm() {
           <pre className="mt-2 text-sm whitespace-pre-wrap">
             {result.email.body}
           </pre>
+        </div>
+      )}
+
+      {result?.audit && (
+        <div className="mt-6 p-4 border rounded">
+          <h3 className="font-semibold">Risk Analysis</h3>
+          <p className="mt-1">
+            Risk Level: {" "}
+            <span className="font-bold">{result.audit.riskLevel}</span>
+          </p>
+
+          {result.audit?.issues?.length > 0 && (
+            <ul className="mt-3 list-disc list-inside text-sm">
+              {result.audit.issues.map((issue, idx) => (
+                <li key={idx}>
+                  <strong>Issue:</strong> {issue.line}
+                  <br />
+                  <strong>Why:</strong> {issue.reason}
+                  <br />
+                  <strong>Safer:</strong> {issue.safeAlternative}
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <p className="mt-2 font-semibold">Confidence: {confidence}</p>
         </div>
       )}
     </section>

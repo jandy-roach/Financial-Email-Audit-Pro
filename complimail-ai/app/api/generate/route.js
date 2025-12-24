@@ -98,10 +98,56 @@ User situation:
     const emailJSON = emailCompletion.choices[0].message.content;
     const email = JSON.parse(emailJSON);
 
+    // -------- PROMPT 2: COMPLIANCE & RISK AUDIT --------
+    const auditPrompt = `
+Review the following financial email for compliance and safety risks.
+
+Rules:
+- Do not allow legal guarantees
+- Do not admit legal fault
+- Avoid absolute promises
+- Avoid threatening or aggressive language
+
+Return ONLY valid JSON in this format:
+{
+  "riskLevel": "Low | Medium | High",
+  "issues": [
+    {
+      "line": "...",
+      "reason": "...",
+      "safeAlternative": "..."
+    }
+  ]
+}
+
+Email to audit:
+"${email.body}"
+`;
+
+    const auditCompletion = await groq.chat.completions.create({
+      model: "llama-3.1-8b-instant",
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are a financial compliance auditor. Respond ONLY with valid JSON.",
+        },
+        {
+          role: "user",
+          content: auditPrompt,
+        },
+      ],
+      temperature: 0,
+    });
+
+    const auditJSON = auditCompletion.choices[0].message.content;
+    const audit = JSON.parse(auditJSON);
+
     return Response.json({
       success: true,
       intent,
       email,
+      audit,
     });
   } catch (error) {
     return Response.json(
