@@ -8,6 +8,18 @@ const groq = new Groq({
 
 export async function POST(req) {
   try {
+    // Read raw body for better diagnostics
+    const rawBody = await req.text();
+    console.log("🟢 /api/generate body:", rawBody ? rawBody.slice(0, 2000) : "(empty)");
+
+    let body;
+    try {
+      body = rawBody ? JSON.parse(rawBody) : {};
+    } catch (parseErr) {
+      console.error("🔴 Failed to parse JSON body:", parseErr, "rawBody:", rawBody);
+      return Response.json({ success: false, error: "Invalid JSON body" }, { status: 400 });
+    }
+
     const {
       situation,
       recipient,
@@ -15,23 +27,40 @@ export async function POST(req) {
       tone,
       instructions,
       length,
-    } = await req.json();
+      mode,
+    } = body;
+
+    const effectiveMode = mode || "generate";
+    console.log("🟢 /api/generate effectiveMode:", effectiveMode);
+
+    if (!situation || typeof situation !== "string" || !situation.trim()) {
+      return Response.json(
+        { success: false, error: "Situation text is required" },
+        { status: 400 }
+      );
+    }
 
     // NOTE: Keep `situation` for UI 'Before' display; we interpret it for backend use.
 
     /* -------------------- INTERPRETATION: CLEAN RAW INPUT -------------------- */
     const interpretationPrompt = `
-The following text is spoken by a user and may be unstructured, emotional, or repetitive.
+The following text comes from speech-to-text input and may contain:
+- Pauses
+- Partial sentences
+- Repeated words
+- Minor transcription mistakes
+- Informal or emotional phrasing
 
-User speech:
+User speech text:
 "${situation}"
 
 Your task:
-- Understand the user's core concern
-- Identify key facts
-- Remove filler words
-- Keep emotional context
-- Rewrite it as a clear, structured description
+- Infer what the user actually means
+- Correct minor speech recognition mistakes
+- Remove filler words and repetitions
+- Preserve emotional intent (apology, urgency, concern, etc.)
+- Rewrite it as a clear, concise description of the situation
+- Do NOT add new facts
 
 Return ONLY valid JSON:
 {
@@ -52,16 +81,27 @@ Return ONLY valid JSON:
       temperature: 0.3,
     });
 
-    const interpretationResult = JSON.parse(
-      interpretationCompletion.choices[0].message.content
-    );
+    const interpretationRaw = interpretationCompletion?.choices?.[0]?.message?.content || "";
+    console.log("🟢 interpretation raw:", interpretationRaw.slice(0, 2000));
+
+    let interpretationResult;
+    try {
+      interpretationResult = JSON.parse(interpretationRaw);
+    } catch (err) {
+      console.error("🔴 Failed to parse interpretation JSON:", err, "raw:", interpretationRaw);
+      return Response.json({ success: false, error: "Invalid JSON from interpretation step" }, { status: 502 });
+    }
 
     const cleanedSituation = interpretationResult.cleanedSituation;
+
+    if (effectiveMode === "interpret") {
+      return Response.json({ success: true, cleanedSituation });
+    }
 
     /* -------------------- 1️⃣ INTENT DETECTION -------------------- */
 
     const intentPrompt = `
-Identify the primary intent of the following financial message.
+Identify the primary intent of the following message.
 
 Message:
 "${cleanedSituation}"
@@ -85,9 +125,16 @@ Return ONLY valid JSON:
       temperature: 0,
     });
 
-    const intentResult = JSON.parse(
-      intentCompletion.choices[0].message.content
-    );
+    const intentRaw = intentCompletion?.choices?.[0]?.message?.content || "";
+    console.log("🟢 intent raw:", intentRaw.slice(0, 2000));
+
+    let intentResult;
+    try {
+      intentResult = JSON.parse(intentRaw);
+    } catch (err) {
+      console.error("🔴 Failed to parse intent JSON:", err, "raw:", intentRaw);
+      return Response.json({ success: false, error: "Invalid JSON from intent step" }, { status: 502 });
+    }
 
     const intent = intentResult.intent;
 
@@ -150,9 +197,16 @@ Return ONLY valid JSON:
       temperature: 0.4,
     });
 
-    const emailResult = JSON.parse(
-      emailCompletion.choices[0].message.content
-    );
+    const emailRaw = emailCompletion?.choices?.[0]?.message?.content || "";
+    console.log("🟢 email raw:", emailRaw.slice(0, 2000));
+
+    let emailResult;
+    try {
+      emailResult = JSON.parse(emailRaw);
+    } catch (err) {
+      console.error("🔴 Failed to parse email JSON:", err, "raw:", emailRaw);
+      return Response.json({ success: false, error: "Invalid JSON from email generation step" }, { status: 502 });
+    }
 
     /* -------------------- 3️⃣ RISK / COMPLIANCE AUDIT -------------------- */
 
@@ -202,9 +256,16 @@ Return ONLY valid JSON:
       temperature: 0,
     });
 
-    const auditResult = JSON.parse(
-      auditCompletion.choices[0].message.content
-    );
+    const auditRaw = auditCompletion?.choices?.[0]?.message?.content || "";
+    console.log("🟢 audit raw:", auditRaw.slice(0, 2000));
+
+    let auditResult;
+    try {
+      auditResult = JSON.parse(auditRaw);
+    } catch (err) {
+      console.error("🔴 Failed to parse audit JSON:", err, "raw:", auditRaw);
+      return Response.json({ success: false, error: "Invalid JSON from audit step" }, { status: 502 });
+    }
 
     /* -------------------- FINAL RESPONSE -------------------- */
 
@@ -221,6 +282,7 @@ Return ONLY valid JSON:
       length,
     });
   } catch (error) {
+    console.error("🔴 /api/generate error:", error);
     return Response.json(
       {
         success: false,
