@@ -6,21 +6,55 @@ const groq = new Groq({
 
 export async function POST(req) {
   try {
-    const { emailBody, feedback, intent } = await req.json();
+    const {
+      emailBody,
+      feedback,
+      intent,
+      cleanedSituation,
+      recipient,
+      style,
+      tone,
+      instructions,
+    } = await req.json();
 
-    const prompt = `
-You are revising an existing financial email.
+    if (!emailBody || !feedback) {
+      return Response.json(
+        { success: false, error: "Email body and feedback are required" },
+        { status: 400 }
+      );
+    }
 
-Intent: ${intent}
+    const refinePrompt = `
+You are refining an existing financial email.
+
+Original intent (DO NOT CHANGE):
+${intent}
+
+Interpreted user situation (this is the true meaning):
+"${cleanedSituation}"
+
+Recipient:
+${recipient}
+
+Writing style:
+${style}
+
+Emotional tone:
+${tone}
+
+User constraints:
+${instructions || "None"}
 
 User feedback:
 "${feedback}"
 
 Rules:
-- Keep the same intent
-- Improve tone based on feedback
-- Do NOT add legal promises
-- Do NOT change meaning
+- Preserve intent and interpreted meaning
+- Apply feedback carefully
+- Maintain style and tone
+- Do NOT add legal promises or admissions
+- Do NOT reintroduce raw spoken fillers
+- Improve clarity and professionalism
 
 Return ONLY valid JSON:
 {
@@ -37,21 +71,24 @@ Original email:
         {
           role: "system",
           content:
-            "You are a professional financial email editor. Respond ONLY with JSON.",
+            "You are a professional financial email editor. Respond ONLY with valid JSON.",
         },
         {
           role: "user",
-          content: prompt,
+          content: refinePrompt,
         },
       ],
-      temperature: 0.4,
+      temperature: 0.3,
     });
 
     const result = JSON.parse(
       completion.choices[0].message.content
     );
 
-    return Response.json({ success: true, result });
+    return Response.json({
+      success: true,
+      updatedBody: result.updatedBody,
+    });
   } catch (error) {
     return Response.json(
       { success: false, error: error.message },

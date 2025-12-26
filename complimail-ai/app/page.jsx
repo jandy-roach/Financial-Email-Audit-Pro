@@ -1,3 +1,4 @@
+"use client";
 import { useState } from "react";
 import InputForm from "../components/InputForm";
 import OutputView from "../components/OutputView";
@@ -14,12 +15,16 @@ export default function Home() {
         </h1>
 
         <InputForm
-          setResult={setResult}
           situation={situation}
           setSituation={setSituation}
+          setResult={setResult}
         />
 
-        <OutputView situation={situation} result={result} />
+        <OutputView
+          situation={situation}
+          result={result}
+          setResult={setResult}
+        />
       </div>
     </main>
   );
