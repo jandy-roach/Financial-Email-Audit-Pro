@@ -4,8 +4,8 @@ import { useState, useRef } from "react";
 
 export default function InputForm({ situation, setSituation, setResult }) {
   const [recipient, setRecipient] = useState("");
-  const [style, setStyle] = useState("Professional");
-  const [tone, setTone] = useState("Apologetic");
+  const [style, setStyle] = useState("Auto");
+  const [tone, setTone] = useState("Auto");
   const [instructions, setInstructions] = useState("");
   const [length, setLength] = useState("Medium");
   const [recording, setRecording] = useState(false);
@@ -164,6 +164,7 @@ export default function InputForm({ situation, setSituation, setResult }) {
                 onChange={(e) => setStyle(e.target.value)}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
               >
+                <option value="Auto">Auto</option>
                 <option>Professional</option>
                 <option>Polite</option>
                 <option>Formal</option>
@@ -181,6 +182,7 @@ export default function InputForm({ situation, setSituation, setResult }) {
                 onChange={(e) => setTone(e.target.value)}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
               >
+                <option value="Auto">Auto</option>
                 <option>Apologetic</option>
                 <option>Neutral</option>
                 <option>Calm</option>

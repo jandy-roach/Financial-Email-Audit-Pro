@@ -30,8 +30,12 @@ export async function POST(req) {
       mode,
     } = body;
 
+    const { outputLanguage = "en" } = body;
+    const LANG_MAP = { en: "English", ta: "Tamil", hi: "Hindi" };
+    const outputLangName = LANG_MAP[outputLanguage] || "English";
+
     const effectiveMode = mode || "generate";
-    console.log("🟢 /api/generate effectiveMode:", effectiveMode);
+    console.log("🟢 /api/generate effectiveMode:", effectiveMode, "outputLanguage:", outputLanguage);
 
     if (!situation || typeof situation !== "string" || !situation.trim()) {
       return Response.json(
@@ -41,6 +45,38 @@ export async function POST(req) {
     }
 
     // NOTE: Keep `situation` for UI 'Before' display; we interpret it for backend use.
+
+    // Robust parser that tries normal parse then repairs common issues and retries
+    function parseLLMJson(raw) {
+      if (!raw) return null;
+
+      // remove markdown fences
+      let text = raw.replace(/```json|```/g, "").trim();
+
+      // extract JSON object
+      const first = text.indexOf("{");
+      const last = text.lastIndexOf("}");
+      if (first === -1 || last === -1) return null;
+
+      let jsonStr = text.slice(first, last + 1);
+
+      // ✅ 1) First attempt: normal parse (works for most outputs)
+      try {
+        return JSON.parse(jsonStr);
+      } catch (e) {
+        // continue to repair
+      }
+
+      // ✅ 2) Repair only if needed: replace REAL newlines with \n
+      // (ONLY real newlines, not already escaped ones)
+      jsonStr = jsonStr.replace(/\r/g, "").replace(/\n/g, "\\n");
+
+      try {
+        return JSON.parse(jsonStr);
+      } catch (e) {
+        return null;
+      }
+    }
 
     /* -------------------- INTERPRETATION: CLEAN RAW INPUT -------------------- */
     const interpretationPrompt = `
@@ -73,22 +109,19 @@ Return ONLY valid JSON:
       messages: [
         {
           role: "system",
-          content:
-            "You interpret spoken input into structured understanding. Respond ONLY with JSON.",
+          content: "Return ONLY valid JSON. No markdown. No commentary.",
         },
         { role: "user", content: interpretationPrompt },
-      ],
-      temperature: 0.3,
+      ],  
+      temperature: 0.2,
     });
 
     const interpretationRaw = interpretationCompletion?.choices?.[0]?.message?.content || "";
     console.log("🟢 interpretation raw:", interpretationRaw.slice(0, 2000));
 
-    let interpretationResult;
-    try {
-      interpretationResult = JSON.parse(interpretationRaw);
-    } catch (err) {
-      console.error("🔴 Failed to parse interpretation JSON:", err, "raw:", interpretationRaw);
+    const interpretationResult = parseLLMJson(interpretationRaw);
+    if (!interpretationResult?.cleanedSituation) {
+      console.error("🔴 Invalid interpretation JSON:", interpretationRaw);
       return Response.json({ success: false, error: "Invalid JSON from interpretation step" }, { status: 502 });
     }
 
@@ -117,8 +150,7 @@ Return ONLY valid JSON:
       messages: [
         {
           role: "system",
-          content:
-            "You are an intent classification assistant. Respond ONLY with JSON.",
+          content: "Return ONLY valid JSON. No markdown. No commentary.",
         },
         { role: "user", content: intentPrompt },
       ],
@@ -128,11 +160,9 @@ Return ONLY valid JSON:
     const intentRaw = intentCompletion?.choices?.[0]?.message?.content || "";
     console.log("🟢 intent raw:", intentRaw.slice(0, 2000));
 
-    let intentResult;
-    try {
-      intentResult = JSON.parse(intentRaw);
-    } catch (err) {
-      console.error("🔴 Failed to parse intent JSON:", err, "raw:", intentRaw);
+    const intentResult = parseLLMJson(intentRaw);
+    if (!intentResult?.intent) {
+      console.error("🔴 Invalid intent JSON:", intentRaw);
       return Response.json({ success: false, error: "Invalid JSON from intent step" }, { status: 502 });
     }
 
@@ -150,16 +180,27 @@ User situation:
 "${cleanedSituation}"
 
 Writing style:
-${style}
+${style === "Auto" ? "Choose the best writing style automatically based on situation and recipient." : style}
 
 Emotional tone:
-${tone}
+${tone === "Auto" ? "Choose the best emotional tone automatically based on situation and recipient." : tone}
 
 Desired length:
 ${length}
 
 Special instructions:
 ${instructions || "None"}
+
+Output language:
+${outputLangName}
+
+Rules:
+- The entire email must be written ONLY in ${outputLangName}
+- Subject must also be in ${outputLangName}
+- Do not mix languages
+- Use culturally appropriate greetings for ${outputLangName}
+- If Writing style or Emotional tone is Auto, decide the most appropriate one for this scenario
+- Mention no explanation, just write the email
 
 Write the email with this structure:
 1. Proper greeting based on recipient
@@ -177,11 +218,16 @@ Rules:
 - Do NOT admit legal fault
 - Keep it realistic and specific
 
-Return ONLY valid JSON:
-{
-  "subject": "...",
-  "body": "..."
-}
+    CRITICAL JSON RULE:
+    - Escape all newline characters in the body using \\n    - Do NOT include raw line breaks inside JSON strings
+    Example:
+    "body": "Line1\\n\\nLine2"
+
+    Return ONLY valid JSON:
+    {
+      "subject": "...",
+      "body": "..."
+    }
 `;
 
     const emailCompletion = await groq.chat.completions.create({
@@ -189,23 +235,23 @@ Return ONLY valid JSON:
       messages: [
         {
           role: "system",
-          content:
-            "You are a professional financial email writer. Respond ONLY with JSON.",
+          content: "Return ONLY valid JSON. No markdown. No commentary.",
         },
         { role: "user", content: emailPrompt },
       ],
-      temperature: 0.4,
+      temperature: 0.2,
     });
 
     const emailRaw = emailCompletion?.choices?.[0]?.message?.content || "";
     console.log("🟢 email raw:", emailRaw.slice(0, 2000));
 
-    let emailResult;
-    try {
-      emailResult = JSON.parse(emailRaw);
-    } catch (err) {
-      console.error("🔴 Failed to parse email JSON:", err, "raw:", emailRaw);
-      return Response.json({ success: false, error: "Invalid JSON from email generation step" }, { status: 502 });
+    const emailResult = parseLLMJson(emailRaw);
+    if (!emailResult?.subject || !emailResult?.body) {
+      console.error("🔴 Invalid email JSON:", emailRaw);
+      return Response.json(
+        { success: false, error: "Invalid JSON from email generation step" },
+        { status: 502 }
+      );
     }
 
     /* -------------------- 3️⃣ RISK / COMPLIANCE AUDIT -------------------- */
@@ -248,8 +294,7 @@ Return ONLY valid JSON:
       messages: [
         {
           role: "system",
-          content:
-            "You are a financial compliance auditor. Respond ONLY with JSON.",
+          content: "Return ONLY valid JSON. No markdown. No commentary.",
         },
         { role: "user", content: auditPrompt },
       ],
@@ -259,11 +304,9 @@ Return ONLY valid JSON:
     const auditRaw = auditCompletion?.choices?.[0]?.message?.content || "";
     console.log("🟢 audit raw:", auditRaw.slice(0, 2000));
 
-    let auditResult;
-    try {
-      auditResult = JSON.parse(auditRaw);
-    } catch (err) {
-      console.error("🔴 Failed to parse audit JSON:", err, "raw:", auditRaw);
+    const auditResult = parseLLMJson(auditRaw);
+    if (!auditResult?.riskLevel || !Array.isArray(auditResult?.issues)) {
+      console.error("🔴 Invalid audit JSON:", auditRaw);
       return Response.json({ success: false, error: "Invalid JSON from audit step" }, { status: 502 });
     }
 
@@ -280,6 +323,8 @@ Return ONLY valid JSON:
       tone,
       instructions,
       length,
+      outputLanguage,
+      outputLangName,
     });
   } catch (error) {
     console.error("🔴 /api/generate error:", error);
